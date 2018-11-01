@@ -18,7 +18,7 @@ use std::hash::Hash;
 use rustc::hir;
 use rustc::mir;
 use rustc::ty::{self, Ty};
-use rustc::ty::layout::{self, Size, Align, LayoutOf, TyLayout, HasDataLayout};
+use rustc::ty::layout::{self, Size, Align, LayoutOf, TyLayout, HasDataLayout, VariantIdx};
 
 use rustc::mir::interpret::{
     GlobalId, AllocId, Allocation, Scalar, EvalResult, Pointer, PointerArithmetic
@@ -444,7 +444,7 @@ where
     pub fn mplace_downcast(
         &self,
         base: MPlaceTy<'tcx, M::PointerTag>,
-        variant: usize,
+        variant: VariantIdx,
     ) -> EvalResult<'tcx, MPlaceTy<'tcx, M::PointerTag>> {
         // Downcasts only change the layout
         assert!(base.meta.is_none());
@@ -509,7 +509,7 @@ where
     pub fn place_downcast(
         &mut self,
         base: PlaceTy<'tcx, M::PointerTag>,
-        variant: usize,
+        variant: VariantIdx,
     ) -> EvalResult<'tcx, PlaceTy<'tcx, M::PointerTag>> {
         // Downcast just changes the layout
         Ok(match base.place {
@@ -912,7 +912,7 @@ where
 
     pub fn write_discriminant_index(
         &mut self,
-        variant_index: usize,
+        variant_index: VariantIdx,
         dest: PlaceTy<'tcx, M::PointerTag>,
     ) -> EvalResult<'tcx> {
         match dest.layout.variants {
@@ -921,7 +921,7 @@ where
             }
             layout::Variants::Tagged { ref tag, .. } => {
                 let adt_def = dest.layout.ty.ty_adt_def().unwrap();
-                assert!(variant_index < adt_def.variants.len());
+                assert!(variant_index.as_usize() < adt_def.variants.len());
                 let discr_val = adt_def
                     .discriminant_for_variant(*self.tcx, variant_index)
                     .val;
@@ -942,11 +942,14 @@ where
                 niche_start,
                 ..
             } => {
-                assert!(variant_index < dest.layout.ty.ty_adt_def().unwrap().variants.len());
+                assert!(
+                    variant_index.as_usize() < dest.layout.ty.ty_adt_def().unwrap().variants.len(),
+                );
                 if variant_index != dataful_variant {
                     let niche_dest =
                         self.place_field(dest, 0)?;
-                    let niche_value = ((variant_index - niche_variants.start()) as u128)
+                    let niche_value = variant_index.as_u32() - niche_variants.start().as_u32();
+                    let niche_value = (niche_value as u128)
                         .wrapping_add(niche_start);
                     self.write_scalar(
                         Scalar::from_uint(niche_value, niche_dest.layout.size),
