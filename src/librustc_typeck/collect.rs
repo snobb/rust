@@ -642,7 +642,7 @@ fn adt_def<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, def_id: DefId) -> &'tcx ty::Ad
             };
             (
                 AdtKind::Struct,
-                vec![convert_variant(
+                std::iter::once(convert_variant(
                     tcx,
                     ctor_id.unwrap_or(def_id),
                     item.name,
@@ -650,12 +650,12 @@ fn adt_def<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, def_id: DefId) -> &'tcx ty::Ad
                     def,
                     AdtKind::Struct,
                     def_id
-                )],
+                )).collect(),
             )
         }
         ItemKind::Union(ref def, _) => (
             AdtKind::Union,
-            vec![convert_variant(
+            std::iter::once(convert_variant(
                 tcx,
                 def_id,
                 item.name,
@@ -663,7 +663,7 @@ fn adt_def<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, def_id: DefId) -> &'tcx ty::Ad
                 def,
                 AdtKind::Union,
                 def_id
-            )],
+            )).collect(),
         ),
         _ => bug!(),
     };
