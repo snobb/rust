@@ -39,6 +39,7 @@ use syntax_pos::{Span, DUMMY_SP};
 use ty::fold::{TypeFoldable, TypeFolder, TypeVisitor};
 use ty::subst::{CanonicalUserSubsts, Subst, Substs};
 use ty::{self, AdtDef, CanonicalTy, ClosureSubsts, GeneratorSubsts, Region, Ty, TyCtxt};
+use ty::layout::VariantIdx;
 use util::ppaux;
 
 pub use mir::interpret::AssertMessage;
@@ -1967,7 +1968,7 @@ pub enum ProjectionElem<'tcx, V, T> {
     /// "Downcast" to a variant of an ADT. Currently, we only introduce
     /// this for ADTs with more than one variant. It may be better to
     /// just introduce it always, or always for enums.
-    Downcast(&'tcx AdtDef, u32),
+    Downcast(&'tcx AdtDef, VariantIdx),
 }
 
 /// Alias for projections as they appear in places, where the base is a place
@@ -2002,8 +2003,8 @@ impl<'tcx> Place<'tcx> {
         self.elem(ProjectionElem::Deref)
     }
 
-    pub fn downcast(self, adt_def: &'tcx AdtDef, variant_index: usize) -> Place<'tcx> {
-        self.elem(ProjectionElem::Downcast(adt_def, variant_index as u32))
+    pub fn downcast(self, adt_def: &'tcx AdtDef, variant_index: VariantIdx) -> Place<'tcx> {
+        self.elem(ProjectionElem::Downcast(adt_def, variant_index))
     }
 
     pub fn index(self, index: Local) -> Place<'tcx> {
@@ -2054,7 +2055,7 @@ impl<'tcx> Debug for Place<'tcx> {
             Promoted(ref promoted) => write!(fmt, "({:?}: {:?})", promoted.0, promoted.1),
             Projection(ref data) => match data.elem {
                 ProjectionElem::Downcast(ref adt_def, index) => {
-                    write!(fmt, "({:?} as {})", data.base, adt_def.variants[index as usize].name)
+                    write!(fmt, "({:?} as {})", data.base, adt_def.variants[index].name)
                 }
                 ProjectionElem::Deref => write!(fmt, "(*{:?})", data.base),
                 ProjectionElem::Field(field, ty) => {
@@ -2244,7 +2245,7 @@ pub enum AggregateKind<'tcx> {
     /// active field index would identity the field `c`
     Adt(
         &'tcx AdtDef,
-        usize,
+        VariantIdx,
         &'tcx Substs<'tcx>,
         Option<UserTypeAnnotation<'tcx>>,
         Option<usize>,
